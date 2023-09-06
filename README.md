@@ -53,6 +53,24 @@ No resources found.
 
 ## Optional Bells & Whistles
 
+### AWS SSO profiles
+
+To activate AWS SSO profile support, create ${HOME}/.kube/.sso-profiles with a mapping of ktx profiles to AWS profiles. For example:
+
+```
+ktx-profile-1    aws-profile-nameA
+ktx-profile-2    aws-profile-nameB
+ktx-profile-3    aws-profile-nameB
+ktx-profile-4    unset
+ktx-profile-5    ignore
+```
+
+When .sso-profiles exists, all ktx configs must have an SSO profile value specified.
+
+Profile value 'unset' will clear AWS_PROFILE rather than setting a value.
+
+Profile value 'ignore' will leave AWS_PROFILE alone, as if SSO profile support was not enabled.
+
 ### PS1
 
 It is helpful to display the active cluster in the command prompt.

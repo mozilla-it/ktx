@@ -33,7 +33,9 @@ ktx() {
         if [[ "${KUBECONFIG}" == "$kube" ]]; then
           echo -n "(active) "
         fi
-        echo $(basename "${kube}")
+        if [[ $kube != *"/.sso-profiles" ]]; then
+            echo $(basename "${kube}")
+        fi
       done
 
       return
@@ -42,14 +44,57 @@ ktx() {
     # If argument is "None" then unset the KUBECONFIG variable
     if [[ "$1" == "none" ]] || [[ "$1" == "None" ]]; then
         unset KUBECONFIG
+        if [[ -n $AWS_PROFILE ]]; then
+            echo "AWS_PROFILE unchanged from '$AWS_PROFILE'."
+        fi
         return
     fi
 
+    # Disallow .sso-profiles as a config
+    if [[ $1 == ".sso-profiles" ]]; then
+        echo ".sso-profiles is a mapping of kube configs to AWS_PROFILE values. Exiting..."
+        return 1
+    fi
+
     # Verify config exists
-    if [ -e "${HOME}/.kube/${1}" ]; then
-        export KUBECONFIG="${HOME}/.kube/${1}"
-    else
+    if [[ ! -e "${HOME}/.kube/${1}" ]]; then
         echo "echo \"The following file does not exist: ${HOME}/.kube/${1}. Exiting...\""
         return 1
     fi
+
+    # Set AWS_PROFILE if found
+    if [ -e "${HOME}/.kube/.sso-profiles" ]; then
+        local ktx_sso
+        ktx_sso="$( awk -v profile="$1" '{ if ($1==profile) printf $2 }' < "${HOME}/.kube/.sso-profiles" )"
+        if [[ -n $ktx_sso ]]; then
+            if [[ $ktx_sso == "ignore" ]]; then
+                echo "AWS_PROFILE unchanged from '$AWS_PROFILE'."
+            else
+                if [[ $ktx_sso == "unset" ]]; then
+                    ktx_sso=""
+                fi
+                if [[ -n $AWS_PROFILE ]]; then
+                    if [[ $AWS_PROFILE == "$ktx_sso" ]]; then
+                        echo "AWS_PROFILE already set to '$ktx_sso'."
+                    else
+                        echo "AWS_PROFILE changed from '$AWS_PROFILE' to '$ktx_sso'."
+                    fi
+                else
+                    echo "AWS_PROFILE set to '$ktx_sso'."
+                fi
+                if [[ -n $ktx_sso ]]; then
+                    export AWS_PROFILE="$ktx_sso"
+                else
+                    unset AWS_PROFILE
+                    export AWS_PROFILE
+                fi
+            fi
+        else
+            echo "Missing AWS_PROFILE for '$1' in ${HOME}/.kube/.sso-profiles. Exiting..."
+            return 1
+        fi
+    fi
+
+    # Activate the config
+    export KUBECONFIG="${HOME}/.kube/${1}"
 }
